@@ -17,6 +17,13 @@ fps = 0
 def intVector(v):
   return int(v.x), int(v.y)
 
+def lineRect(line):
+  rect = pygame.rect.Rect(*map(intVector, [line[0], line[0]-line[1]]))
+  rect.normalize()
+  return rect
+
+print(lineRect([vector(50, 50), vector(100,100)]))
+
 class polygon:
   all = []
   
@@ -63,17 +70,24 @@ def intersection(line1, line2):
     slope1 = (line1[1].y-line1[0].y)/(line1[1].x-line1[0].x)
   except ZeroDivisionError:
     slope1 = float("inf")
-  intercept1 = line1[0].y - slope1*line1[0].x
+    intercept1 = -slope1
+  else:
+    intercept1 = line1[0].y - slope1*line1[0].x
+  
   try:
     slope2 = (line2[1].y-line2[0].y)/(line2[1].x-line2[0].x)
   except ZeroDivisionError:
     slope2 = float("inf")
-  intercept2 = line2[0].y - slope2*line2[0].x
+    intercept2 = -slope2
+  else:
+    intercept2 = line2[0].y - slope2*line2[0].x
+  
   print(slope1, intercept1)
   print(slope2, intercept2)
+  
   if slope1 == slope2:
     if intercept1 == intercept2:
-      if intercept1 not in [float("inf"), float("-inf")]:
+      if intercept1 != float("-inf"):
         #if y-intercepts are equal: lines are the same
         #test for lines touching eachother using ranges of x and y
         return vector() #placeholder
@@ -82,11 +96,24 @@ def intersection(line1, line2):
         #mabye combine with if above
         return vector() #placeholder
   else:
-    if slope1 in [float("inf"), float("-inf"), 0] or slope2 in [float("inf"), float("-inf"), 0]:
+    if slope1 == float("inf") or slope2 == float("inf"):
+      if slope1 == float("inf"):
+        x = line1[0].x
+        y = slope2*x + intercept2
+      else:
+        x = line2[0].x
+        y = slope1*x + intercept1
+    else:
+      x = (intercept2-intercept1)/(slope1-slope2)
+      y = slope1*x + intercept1
+    
+    #rect.clip
+    if min(line1[0].x, line1[1].x):
       pass
-    x = (intercept2-intercept1)/(slope1-slope2)
-    y = slope1*x + intercept1
     return vector(x, y)
+
+print(intersection([vector(50,50), vector(100,50)], [vector(), vector(0, 100)]))
+print()
 
 screen.fill(background)
 pygame.display.flip()
