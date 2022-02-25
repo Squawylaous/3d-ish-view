@@ -102,8 +102,11 @@ def intersection(line1, line2):
     x = (intercept2-intercept1)/(slope1-slope2)
     y = slope1*x + intercept1
   
-  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x))<=x<=min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\
-  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y))<=y<=min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)):
+  # tests to see if current x and y values are within bounds of lines
+  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x)) <=\ # min x
+  x <= min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\ # max x
+  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y)) <=\ # min y
+  y <= min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)): # max y
     return vector(x, y)
 
 screen.fill(background)
@@ -115,9 +118,17 @@ polygon((350, 150, 100, 100))
 for wall in polygon.all:
   print(wall)
   for ray in Camera.rays(1):
+    inters = []
     for edge in wall.lines():
-      print([Camera.pos, ray+Camera.pos], edge)
-      print(intersection([Camera.pos, ray+Camera.pos], edge))
+      point = intersection([Camera.pos, ray+Camera.pos], edge)
+      print(point)
+      if point is not None:
+        inters.append(point)
+        # vn = v1+(v2-v1)*p
+        # p = (vn-v1)/(v2-v1)
+        percent = (point-Camera.pos).elementwise()/ray
+        print(percent)
+        print(Camera.pos.lerp(ray+Camera.pos, percent))
 
 while True:
   clock.tick(-1)
