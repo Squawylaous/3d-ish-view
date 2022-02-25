@@ -18,11 +18,9 @@ def intVector(v):
   return int(v.x), int(v.y)
 
 def lineRect(line):
-  rect = pygame.rect.Rect(*map(intVector, [line[0], line[0]-line[1]]))
+  rect = pygame.rect.Rect(*map(intVector, [line[0], line[1]-line[0]]))
   rect.normalize()
   return rect
-
-print(lineRect([vector(50, 50), vector(100,100)]))
 
 class polygon:
   all = []
@@ -82,38 +80,31 @@ def intersection(line1, line2):
   else:
     intercept2 = line2[0].y - slope2*line2[0].x
   
-  print(slope1, intercept1)
-  print(slope2, intercept2)
-  
   if slope1 == slope2:
     if intercept1 == intercept2:
       if intercept1 != float("-inf"):
         #if y-intercepts are equal: lines are the same
         #test for lines touching eachother using ranges of x and y
-        return vector() #placeholder
+        x, y = 0, 0 #placeholder
       elif line1[0].x == line2[0].x:
         #if both lines are vertical and equal
         #mabye combine with if above
-        return vector() #placeholder
-  else:
-    if slope1 == float("inf") or slope2 == float("inf"):
-      if slope1 == float("inf"):
-        x = line1[0].x
-        y = slope2*x + intercept2
+        x, y = 0, 0 #placeholder
       else:
-        x = line2[0].x
-        y = slope1*x + intercept1
-    else:
-      x = (intercept2-intercept1)/(slope1-slope2)
-      y = slope1*x + intercept1
-    
-    #rect.clip
-    if min(line1[0].x, line1[1].x):
-      pass
+        return None
+  elif slope1 == float("inf"):
+    x = line1[0].x
+    y = slope2*x + intercept2
+  elif slope2 == float("inf"):
+    x = line2[0].x
+    y = slope1*x + intercept1
+  else:
+    x = (intercept2-intercept1)/(slope1-slope2)
+    y = slope1*x + intercept1
+  
+  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x))<=x<=min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\
+  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y))<=y<=min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)):
     return vector(x, y)
-
-print(intersection([vector(50,50), vector(100,50)], [vector(), vector(0, 100)]))
-print()
 
 screen.fill(background)
 pygame.display.flip()
@@ -123,8 +114,8 @@ polygon((350, 150, 100, 100))
 
 for wall in polygon.all:
   print(wall)
-  for edge in wall.lines():
-    for ray in Camera.rays(1):
+  for ray in Camera.rays(1):
+    for edge in wall.lines():
       print([Camera.pos, ray+Camera.pos], edge)
       print(intersection([Camera.pos, ray+Camera.pos], edge))
 
