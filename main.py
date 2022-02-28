@@ -10,6 +10,7 @@ background = Color(161, 161, 161)
 foreground = Color(255, 255, 255)
 screen = pygame.display.set_mode((0, 0), FULLSCREEN)
 screen_rect = screen.get_rect()
+pygame.keys.set_repeat(1, 10)
 
 update_rects = [[]]
 fps = 0
