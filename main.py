@@ -50,7 +50,7 @@ class polygon:
     update_rects.append(pygame.draw.polygon(screen, color, [*map(intVector, self.corners)]))
 
 class camera:
-  def __init__(self, pos, angle, fov=90, viewRange=1000):
+  def __init__(self, pos, angle, fov=90, viewRange=500):
     self.pos, self.angle, self.fov, self.viewRange = vector(pos), vector(1,0).rotate(angle), fov, viewRange
   
   def rays(self, n=screen_rect.w):
@@ -103,10 +103,10 @@ def intersection(line1, line2):
     y = slope1*x + intercept1
   
   # tests to see if current x and y values are within bounds of lines
-  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x)) <=\ # min x
-  x <= min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\ # max x
-  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y)) <=\ # min y
-  y <= min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)): # max y
+  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x)) <=\
+  x <= min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\
+  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y)) <=\
+  y <= min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)):
     return vector(x, y)
 
 screen.fill(background)
@@ -124,11 +124,7 @@ for wall in polygon.all:
       print(point)
       if point is not None:
         inters.append(point)
-        # vn = v1+(v2-v1)*p
-        # p = (vn-v1)/(v2-v1)
-        percent = (point-Camera.pos).elementwise()/ray
-        print(percent)
-        print(Camera.pos.lerp(ray+Camera.pos, percent))
+        percent = (point-Camera.pos).length()/Camera.viewRange
 
 while True:
   clock.tick(-1)
