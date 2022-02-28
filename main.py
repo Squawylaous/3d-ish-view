@@ -50,13 +50,30 @@ class polygon:
     update_rects.append(pygame.draw.polygon(screen, color, [*map(intVector, self.corners)]))
 
 class camera:
-  def __init__(self, pos, angle, fov=90, viewRange=500):
-    self.pos, self.angle, self.fov, self.viewRange = vector(pos), vector(1,0).rotate(angle), fov, viewRange
+  def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
+    self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
+    self.fov, self.viewRange, self.fidelity = fov, viewRange, fidelity
   
   def rays(self, n=screen_rect.w):
     return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
   
-  def draw(self, color):
+  def draw(self):
+    inters = [None for i in range(self.fidelity)]
+    rays = self.rays(self.fidelity)
+    for wall in polygon.all:
+      for i in range(self.fidelity):
+        ray = rays[i]
+        for edge in wall.lines():
+          point = intersection([self.pos, ray+self.pos], edge)
+          if point is not None:
+            percent = (point-self.pos).length()/self.viewRange
+            if inters[i] is None or inters[i]["%"] > percent:
+              inters[i] = {"%":percent, "polygon":wall}
+    
+    for ray in inters:
+      pass
+  
+  def dot(self, color):
     update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
 
 #gets the intersection point of two lines
@@ -112,19 +129,9 @@ def intersection(line1, line2):
 screen.fill(background)
 pygame.display.flip()
 
-Camera = camera((400,400), -90)
+viewMode = True
+Camera = camera((400,400), -90, fidelity=80)
 polygon((350, 150, 100, 100))
-
-for wall in polygon.all:
-  print(wall)
-  for ray in Camera.rays(1):
-    inters = []
-    for edge in wall.lines():
-      point = intersection([Camera.pos, ray+Camera.pos], edge)
-      print(point)
-      if point is not None:
-        inters.append(point)
-        percent = (point-Camera.pos).length()/Camera.viewRange
 
 while True:
   clock.tick(-1)
@@ -139,10 +146,12 @@ while True:
         pygame.event.post(pygame.event.Event(QUIT))
   
   screen.fill(background)
-  
-  Camera.draw(foreground)
-  for wall in polygon.all:
-    wall.draw(foreground)
+  if viewMode:
+    camera.draw()
+  else:
+    Camera.dot(foreground)
+    for wall in polygon.all:
+      wall.draw(foreground)
   
   screen.blit(font.render(str(int(fps)), 0, foreground), (0,0))
   update_rects.append(pygame.rect.Rect((0,0), font.size(str(int(fps)))))
