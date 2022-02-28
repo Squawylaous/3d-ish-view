@@ -10,7 +10,7 @@ background = Color(161, 161, 161)
 foreground = Color(255, 255, 255)
 screen = pygame.display.set_mode((0, 0), FULLSCREEN)
 screen_rect = screen.get_rect()
-pygame.keys.set_repeat(1, 10)
+pygame.key.set_repeat(1, 10)
 
 update_rects = [[]]
 fps = 0
@@ -26,7 +26,8 @@ def lineRect(line):
 class polygon:
   all = []
   
-  def __init__(self, *corners):
+  def __init__(self, *corners, color=foreground):
+    self.color = color
     if len(corners) == 1:
       corners = corners[0]
       self.corners = [vector(corners[:2]) for i in range(4)]
@@ -47,8 +48,8 @@ class polygon:
   def lines(self):
     return zip(self.corners, self.corners[-1:]+self.corners[:-1])
   
-  def draw(self, color):
-    update_rects.append(pygame.draw.polygon(screen, color, [*map(intVector, self.corners)]))
+  def draw(self):
+    update_rects.append(pygame.draw.polygon(screen, self.color, [*map(intVector, self.corners)]))
 
 class camera:
   def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
@@ -69,10 +70,15 @@ class camera:
           if point is not None:
             percent = (point-self.pos).length()/self.viewRange
             if inters[i] is None or inters[i]["%"] > percent:
-              inters[i] = {"%":percent, "polygon":wall}
+              inters[i] = {"i":i, "%":percent, "color":wall.color}
     
+    buffer = 0.9
     for ray in inters:
-      pass
+      if ray is not None:
+        rect = pygame.rect.Rect(ray["i"]*screen_rect.w/self.fidelity, 0,
+          screen_rect.w/self.fidelity, screen_rect.h*(1-ray["%"])*buffer)
+        rect.centery = screen_rect.h/2
+        update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
   
   def dot(self, color):
     update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
@@ -148,11 +154,11 @@ while True:
   
   screen.fill(background)
   if viewMode:
-    camera.draw()
+    Camera.draw()
   else:
     Camera.dot(foreground)
     for wall in polygon.all:
-      wall.draw(foreground)
+      wall.draw()
   
   screen.blit(font.render(str(int(fps)), 0, foreground), (0,0))
   update_rects.append(pygame.rect.Rect((0,0), font.size(str(int(fps)))))
