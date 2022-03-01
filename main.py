@@ -1,7 +1,7 @@
+import numpy as np
 import pygame
 from pygame.locals import *
 from pygame.math import Vector2 as vector
-from itertools import starmap
 
 pygame.init()
 
@@ -32,22 +32,18 @@ def colorMerge(*colorList):
       break
     colors.append(colorList[i-1])
     percents.append(colorList[i])
+  
   colorList = colorList[len(colors)*2:]
   if colorList:
-    colors += colorList
-    percents += [(1-sum(percents))/len(colorList)]*len(colorList)
-  percents = [i/sum(percents) for i in percents]
-  colors = [*zip(starmap(pygame.Color, colors), percents)]
-  print([color[1] for color, percent in colors])
-  colors = [[i*percent for i in color] for color, percent in colors]
-  print([[color[i] for i in colors] for i in range(4)])
-  colors = starmap(pygame.Color, colors)
-  return colors
+    colors.append(map(np.average, zip(*colorList)))
+    percents.append(max(1-sum(percents), 0))
+  return pygame.Color(*[int(round(np.average(i, weights=percents))) for i in zip(*colors)])
 
 print(colorMerge(background, foreground))
 print(colorMerge(background, 0.25, foreground))
 print(colorMerge(background, 0.25, foreground, 0.5))
 print(colorMerge(background, 0.25, foreground, 0.5, [208, 208, 0]))
+print(colorMerge(background, 0.25, foreground, 0.5, [208, 208, 0], [208, 0, 208]))
 
 #gets the intersection point of two lines
 #line1 and line2 both take a list of 2 vectors
