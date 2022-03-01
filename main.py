@@ -37,8 +37,12 @@ def colorMerge(*colorList):
     colors += colorList
     percents += [(1-sum(percents))/len(colorList)]*len(colorList)
   percents = [i/sum(percents) for i in percents]
+  colors = [*zip(starmap(pygame.Color, colors), percents)]
+  print([color[1] for color, percent in colors])
+  colors = [[i*percent for i in color] for color, percent in colors]
+  print([[color[i] for i in colors] for i in range(4)])
   colors = starmap(pygame.Color, colors)
-  return [[i*percent for i in color] for color, percent in zip(colors, percents)]
+  return colors
 
 print(colorMerge(background, foreground))
 print(colorMerge(background, 0.25, foreground))
