@@ -23,38 +23,38 @@ def lineRect(line):
   rect.normalize()
   return rect
 
-class polygon:
+def polygon(*corners, color=foreground, colors=[]):
+  if len(corners) == 1:
+    corners = corners[0]
+    corners = [vector(corners[:2]) for i in range(4)]
+    corners[1] += corners[2], 0
+    corners[2] += corners[2:]
+    corners[3] += 0, corners[3]
+  corners = [*map(vector, self.corners)]
+  lines = [*zip(corners, corners[-1:]+corners[:-1])]
+  Colors = [color]*(len(lines))
+  Colors[:len(colors)] = colors
+  for line, color in zip(lines, Colors):
+    Wall(line, color)
+
+class Wall:
   all = []
   
-  def __init__(self, *corners, color=foreground):
-    self.color = color
-    if len(corners) == 1:
-      corners = corners[0]
-      self.corners = [vector(corners[:2]) for i in range(4)]
-      self.corners[1] += corners[2], 0
-      self.corners[2] += corners[2:]
-      self.corners[3] += 0, corners[3]
-    else:
-      self.corners = corners
-    self.corners = [*map(vector, self.corners)]
-    polygon.all.append(self)
+  def __init__(self, line, color=foreground):
+    self.line, self.color = [*map(vector, line)], color
+    Wall.all.append(self)
   
   def __str__(self):
-    return str([*map(lambda c:(c.x,c.y), self.corners)])
-  
-  def append(self, item):
-    self.corners.append(vector(item))
-  
-  def lines(self):
-    return zip(self.corners, self.corners[-1:]+self.corners[:-1])
-  
+    return str([*map(lambda c:(c.x,c.y), self.line), "color:"+str(self.color)])
+
   def draw(self):
-    update_rects.append(pygame.draw.polygon(screen, self.color, [*map(intVector, self.corners)]))
+    update_rects.append(pygame.draw.line(screen, self.color, [*map(intVector, self.line)]), 5)
 
 class camera:
   def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
     self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
     self.fov, self.viewRange, self.fidelity = fov, viewRange, fidelity
+    self.comp = True
   
   def rays(self, n=screen_rect.w):
     return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
@@ -62,15 +62,17 @@ class camera:
   def draw(self):
     inters = [None for i in range(self.fidelity)]
     rays = self.rays(self.fidelity)
-    for wall in polygon.all:
-      for i in range(self.fidelity):
-        ray = rays[i]
-        for edge in wall.lines():
-          point = intersection([self.pos, ray+self.pos], edge)
-          if point is not None:
-            percent = (((point-self.pos)*self.angle)/(self.angle*self.angle))/self.viewRange
-            if inters[i] is None or inters[i]["%"] > percent:
-              inters[i] = {"i":i, "%":percent, "color":wall.color}
+    for i in range(self.fidelity):
+      ray = rays[i]
+      for wall in Wall.all:
+        point = intersection([self.pos, ray+self.pos], wall.line)
+        if point is not None:
+          if self.comp:
+            percent = ((point-self.pos)*self.angle)/self.viewRange
+          else:
+            percent = (point-self.pos).length()/self.viewRange
+          if inters[i] is None or inters[i]["%"] > percent:
+            inters[i] = {"i":i, "%":percent, "color":wall.color}
     
     buffer = 0.9
     for ray in inters:
@@ -140,8 +142,10 @@ pygame.display.flip()
 
 viewMode = True
 Camera = camera((400,400), -90, fidelity=80)
-polygon((250, 100, 300, 100))
+polygon((250, 100, 300, 100), colors=[background, foreground, background])
 polygon((350, 200, 100, 100))
+
+print(*Wall.all)
 
 while True:
   clock.tick(-1)
@@ -161,8 +165,10 @@ while True:
       elif event.key == K_d:
         Camera.pos.x += 1
     elif event.type == KEYUP:
-      if event.key == K_SPACE:
+      if event.key == K_RETURN:
         viewMode = not viewMode
+      elif event.key == K_SPACE:
+        Camera.comp = not Camera.comp
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
   
@@ -171,7 +177,7 @@ while True:
     Camera.draw()
   else:
     Camera.dot(foreground)
-    for wall in polygon.all:
+    for wall in Wall.all:
       wall.draw()
   
   screen.blit(font.render(str(int(fps)), 0, foreground), (0,0))
