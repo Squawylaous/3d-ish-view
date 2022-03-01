@@ -1,6 +1,7 @@
 import pygame
 from pygame.locals import *
 from pygame.math import Vector2 as vector
+from itertools import starmap
 
 pygame.init()
 
@@ -27,12 +28,17 @@ def colorMerge(*colorList):
   colors = []
   percents = []
   for i in range(1, len(colorList), 2):
-    if type(colorList[i]) not float:
+    if type(colorList[i]) is not float:
       break
     colors.append(colorList[i-1])
     percents.append(colorList[i])
   colorList = colorList[len(colors)*2:]
-  return ""
+  if colorList:
+    colors += colorList
+    percents += [(1-sum(percents))/len(colorList)]*len(colorList)
+  percents = [i/sum(percents) for i in percents]
+  colors = starmap(pygame.Color, colors)
+  return [[i*percent for i in color] for color, percent in zip(colors, percents)]
 
 print(colorMerge(background, foreground))
 print(colorMerge(background, 0.25, foreground))
