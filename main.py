@@ -68,7 +68,7 @@ class camera:
         for edge in wall.lines():
           point = intersection([self.pos, ray+self.pos], edge)
           if point is not None:
-            percent = (point-self.pos).length()/self.viewRange
+            percent = (((point-self.pos)*self.angle)/(self.angle*self.angle))/self.viewRange
             if inters[i] is None or inters[i]["%"] > percent:
               inters[i] = {"i":i, "%":percent, "color":wall.color}
     
@@ -126,6 +126,8 @@ def intersection(line1, line2):
     x = (intercept2-intercept1)/(slope1-slope2)
     y = slope1*x + intercept1
   
+  x, y = round(x, 10), round(y, 10)
+  
   # tests to see if current x and y values are within bounds of lines
   if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x)) <=\
   x <= min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\
@@ -138,7 +140,8 @@ pygame.display.flip()
 
 viewMode = True
 Camera = camera((400,400), -90, fidelity=80)
-polygon((350, 150, 100, 100))
+polygon((250, 100, 300, 100))
+polygon((350, 200, 100, 100))
 
 while True:
   clock.tick(-1)
@@ -149,7 +152,18 @@ while True:
     break
   for event in pygame.event.get():
     if event.type == KEYDOWN:
-      if event.key == K_ESCAPE:
+      if event.key == K_w:
+        Camera.pos.y -= 1
+      elif event.key == K_s:
+        Camera.pos.y += 1
+      elif event.key == K_a:
+        Camera.pos.x -= 1
+      elif event.key == K_d:
+        Camera.pos.x += 1
+    elif event.type == KEYUP:
+      if event.key == K_SPACE:
+        viewMode = not viewMode
+      elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
   
   screen.fill(background)
