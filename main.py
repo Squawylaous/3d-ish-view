@@ -23,67 +23,21 @@ def lineRect(line):
   rect.normalize()
   return rect
 
-def polygon(*corners, color=foreground, colors=[]):
-  if len(corners) == 1:
-    corners = corners[0]
-    corners = [vector(corners[:2]) for i in range(4)]
-    corners[1] += corners[2], 0
-    corners[2] += corners[2:]
-    corners[3] += 0, corners[3]
-  corners = [*map(vector, self.corners)]
-  lines = [*zip(corners, corners[-1:]+corners[:-1])]
-  Colors = [color]*(len(lines))
-  Colors[:len(colors)] = colors
-  for line, color in zip(lines, Colors):
-    Wall(line, color)
+def colorMerge(*colorList):
+  colors = []
+  percents = []
+  for i in range(1, len(colorList), 2):
+    if type(colorList[i]) not float:
+      break
+    colors.append(colorList[i-1])
+    percents.append(colorList[i])
+  colorList = colorList[len(colors)*2:]
+  return ""
 
-class Wall:
-  all = []
-  
-  def __init__(self, line, color=foreground):
-    self.line, self.color = [*map(vector, line)], color
-    Wall.all.append(self)
-  
-  def __str__(self):
-    return str([*map(lambda c:(c.x,c.y), self.line), "color:"+str(self.color)])
-
-  def draw(self):
-    update_rects.append(pygame.draw.line(screen, self.color, [*map(intVector, self.line)]), 5)
-
-class camera:
-  def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
-    self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
-    self.fov, self.viewRange, self.fidelity = fov, viewRange, fidelity
-    self.comp = True
-  
-  def rays(self, n=screen_rect.w):
-    return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
-  
-  def draw(self):
-    inters = [None for i in range(self.fidelity)]
-    rays = self.rays(self.fidelity)
-    for i in range(self.fidelity):
-      ray = rays[i]
-      for wall in Wall.all:
-        point = intersection([self.pos, ray+self.pos], wall.line)
-        if point is not None:
-          if self.comp:
-            percent = ((point-self.pos)*self.angle)/self.viewRange
-          else:
-            percent = (point-self.pos).length()/self.viewRange
-          if inters[i] is None or inters[i]["%"] > percent:
-            inters[i] = {"i":i, "%":percent, "color":wall.color}
-    
-    buffer = 0.9
-    for ray in inters:
-      if ray is not None:
-        rect = pygame.rect.Rect(ray["i"]*screen_rect.w/self.fidelity, 0,
-          screen_rect.w/self.fidelity, screen_rect.h*(1-ray["%"])*buffer)
-        rect.centery = screen_rect.h/2
-        update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
-  
-  def dot(self, color):
-    update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
+print(colorMerge(background, foreground))
+print(colorMerge(background, 0.25, foreground))
+print(colorMerge(background, 0.25, foreground, 0.5))
+print(colorMerge(background, 0.25, foreground, 0.5, [208, 208, 0]))
 
 #gets the intersection point of two lines
 #line1 and line2 both take a list of 2 vectors
@@ -137,15 +91,71 @@ def intersection(line1, line2):
   y <= min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)):
     return vector(x, y)
 
+def polygon(*points, color=foreground, colors=[]):
+  if len(points) == 1:
+    points = [vector(points[0][:2])+i for i in [(0,0), (points[0][2],0), points[0][2:], (0,points[0][3])]]
+  corners = [*map(vector, points)]
+  lines = [*zip(corners, corners[-1:]+corners[:-1])]
+  Colors = [color]*(len(lines))
+  Colors[:len(colors)] = colors
+  for line, color in zip(lines, Colors):
+    Wall(line, color)
+
+class Wall:
+  all = []
+  
+  def __init__(self, line, color=foreground):
+    self.line, self.color = [*map(vector, line)], color
+    Wall.all.append(self)
+  
+  def __str__(self):
+    return str([*map(lambda c:(c.x,c.y), self.line), "color:"+str(self.color)])
+
+  def draw(self):
+    update_rects.append(pygame.draw.line(screen, self.color, *map(intVector, self.line), 5))
+
+class camera:
+  def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
+    self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
+    self.fov, self.viewRange, self.fidelity = fov, viewRange, fidelity
+    self.comp = True
+  
+  def rays(self, n=screen_rect.w):
+    return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
+  
+  def draw(self):
+    inters = [None for i in range(self.fidelity)]
+    rays = self.rays(self.fidelity)
+    for i in range(self.fidelity):
+      ray = rays[i]
+      for wall in Wall.all:
+        point = intersection([self.pos, ray+self.pos], wall.line)
+        if point is not None:
+          if self.comp:
+            percent = ((point-self.pos)*self.angle)/self.viewRange
+          else:
+            percent = (point-self.pos).length()/self.viewRange
+          if inters[i] is None or inters[i]["%"] > percent:
+            inters[i] = {"i":i, "%":percent, "color":wall.color}
+    
+    buffer = 0.9
+    for ray in inters:
+      if ray is not None:
+        rect = pygame.rect.Rect(ray["i"]*screen_rect.w/self.fidelity, 0,
+          screen_rect.w/self.fidelity, screen_rect.h*(1-ray["%"])*buffer)
+        rect.centery = screen_rect.h/2
+        update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
+  
+  def dot(self, color):
+    update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
+
 screen.fill(background)
 pygame.display.flip()
 
 viewMode = True
 Camera = camera((400,400), -90, fidelity=80)
-polygon((250, 100, 300, 100), colors=[background, foreground, background])
+polygon((250, 100, 300, 100))
 polygon((350, 200, 100, 100))
-
-print(*Wall.all)
 
 while True:
   clock.tick(-1)
