@@ -11,7 +11,10 @@ background = Color(161, 161, 161)
 foreground = Color(255, 255, 255)
 screen = pygame.display.set_mode((0, 0), FULLSCREEN)
 screen_rect = screen.get_rect()
-pygame.key.set_repeat(1, 10)
+pygame.key.set_repeat(1, 50)
+
+UPDATESCREEN = USEREVENT + 0
+pygame.time.set_timer(UPDATESCREEN, 1000)
 
 update_rects = [[]]
 fps = 0
@@ -25,6 +28,8 @@ def lineRect(line):
   return rect
 
 def colorMerge(*colorList):
+  if len(colorList) < 2:
+    colorList = (foreground,) + colorList + (background,)
   colors = []
   percents = []
   for i in range(1, len(colorList), 2):
@@ -38,12 +43,6 @@ def colorMerge(*colorList):
     colors.append(map(np.average, zip(*colorList)))
     percents.append(max(1-sum(percents), 0))
   return pygame.Color(*[int(round(np.average(i, weights=percents))) for i in zip(*colors)])
-
-print(colorMerge(background, foreground))
-print(colorMerge(background, 0.25, foreground))
-print(colorMerge(background, 0.25, foreground, 0.5))
-print(colorMerge(background, 0.25, foreground, 0.5, [208, 208, 0]))
-print(colorMerge(background, 0.25, foreground, 0.5, [208, 208, 0], [208, 0, 208]))
 
 #gets the intersection point of two lines
 #line1 and line2 both take a list of 2 vectors
@@ -116,83 +115,133 @@ class Wall:
   
   def __str__(self):
     return str([*map(lambda c:(c.x,c.y), self.line), "color:"+str(self.color)])
+  
+  @property
+  def center(self):
+    return (self.line[0]+self.line[1])/2
 
   def draw(self):
     update_rects.append(pygame.draw.line(screen, self.color, *map(intVector, self.line), 5))
 
-class camera:
-  def __init__(self, pos, angle, fov=90, viewRange=500, fidelity=screen_rect.w):
-    self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
-    self.fov, self.viewRange, self.fidelity = fov, viewRange, fidelity
-    self.comp = True
+class Camera:
+  def __init__(self, player, *, fov, viewRange, fidelity=screen_rect.w):
+    self.player, self.fov, self.viewRange, self.fidelity = player, fov, viewRange, fidelity
+    self.viewMode, self.comp = True, False
   
-  def rays(self, n=screen_rect.w):
+  @property
+  def pos(self):
+    return self.player.pos
+  
+  @pos.setter
+  def pos(self, value):
+    self.player.pos = value
+  
+  @property
+  def angle(self):
+    return self.player.angle
+  
+  @angle.setter
+  def angle(self, value):
+    self.player.angle = value
+  
+  def rays(self, n):
     return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
   
   def draw(self):
-    inters = [None for i in range(self.fidelity)]
-    rays = self.rays(self.fidelity)
-    for i in range(self.fidelity):
-      ray = rays[i]
+    if self.viewMode == 1:
+      self.viewMode = 2
+      visible = []
       for wall in Wall.all:
-        point = intersection([self.pos, ray+self.pos], wall.line)
-        if point is not None:
-          if self.comp:
-            percent = ((point-self.pos)*self.angle)/self.viewRange
-          else:
-            percent = (point-self.pos).length()/self.viewRange
-          if inters[i] is None or inters[i]["%"] > percent:
-            inters[i] = {"i":i, "%":percent, "color":wall.color}
-    
-    buffer = 0.9
-    for ray in inters:
-      if ray is not None:
-        rect = pygame.rect.Rect(ray["i"]*screen_rect.w/self.fidelity, 0,
-          screen_rect.w/self.fidelity, screen_rect.h*(1-ray["%"])*buffer)
-        rect.centery = screen_rect.h/2
-        update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
+        inters = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
+        angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
+        if (inters[0] is not None or inters[1] is not None) or sum([abs(i)<=self.fov/2 for i in angles]):
+          visible.append({"wall":wall, "inters":inters, "angles":angles})
+    else:
+      inters = [None for i in range(self.fidelity)]
+      rays = self.rays(self.fidelity)
+      for i in range(self.fidelity):
+        ray = rays[i]
+        for wall in Wall.all:
+          point = intersection([self.pos, ray+self.pos], wall.line)
+          if point is not None:
+            if self.comp:
+              percent = (point-self.pos)*self.angle
+            else:
+              percent = (point-self.pos).length()
+            percent = 1-percent/self.viewRange
+            if inters[i] is None or inters[i]["%"] < percent:
+              inters[i] = {"i":i, "%":percent, "color":wall.color}
+      
+      for ray in inters:
+        if ray is not None:
+          rect = pygame.rect.Rect(screen_rect.w/self.fidelity*ray["i"], screen_rect.h/2*(1-ray["%"]),
+            screen_rect.w/self.fidelity, screen_rect.h*ray["%"])
+          update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
   
   def dot(self, color):
+    update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(-self.fov/2)*self.viewRange]), 3))
+    update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(self.fov/2)*self.viewRange]), 3))
     update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
+
+#lol=vector(1,1)
+#print(*[(i+180)%360-180 for i in map(round, map(lol.angle_to, map(lol.rotate, range(360))))])
+
+class Player:
+  def __init__(self, pos, angle):
+    self.pos, self.angle = vector(pos), vector(1,0).rotate(angle)
+    self.speed, self.rotate_speed = 12.5, 2.5
+    self.camera = Camera(self, fov=90, viewRange=1000)
+  
+  @property
+  def velocity(self):
+    return self.angle * self.speed
 
 screen.fill(background)
 pygame.display.flip()
 
-viewMode = True
-Camera = camera((400,400), -90, fidelity=80)
+player = Player((400,400), -90)
+player.camera.fidelity = 80
 polygon((250, 100, 300, 100))
-polygon((350, 200, 100, 100))
+polygon((350, 175, 100, 150), color=colorMerge(.75))
+polygon((0, 0, 1000, 1000), color=colorMerge(.5))
 
 while True:
   clock.tick(-1)
   fps = clock.get_fps()
   update_rects = [update_rects[1:]]
+  screen.fill(background)
   
   if pygame.event.get(QUIT):
     break
   for event in pygame.event.get():
     if event.type == KEYDOWN:
       if event.key == K_w:
-        Camera.pos.y -= 1
+        player.pos += player.velocity
       elif event.key == K_s:
-        Camera.pos.y += 1
+        player.pos -= player.velocity
       elif event.key == K_a:
-        Camera.pos.x -= 1
+        player.pos -= player.velocity.rotate(90)
       elif event.key == K_d:
-        Camera.pos.x += 1
+        player.pos += player.velocity.rotate(90)
+      elif event.key == K_LEFT:
+        player.angle.rotate_ip(-player.rotate_speed)
+      elif event.key == K_RIGHT:
+        player.angle.rotate_ip(player.rotate_speed)
     elif event.type == KEYUP:
       if event.key == K_RETURN:
-        viewMode = not viewMode
+        player.camera.viewMode = (player.camera.viewMode+1)%3
+        pygame.event.post(pygame.event.Event(UPDATESCREEN))
       elif event.key == K_SPACE:
-        Camera.comp = not Camera.comp
+        player.camera.comp = not player.camera.comp
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
+    elif event.type == UPDATESCREEN:
+        update_rects[0].append(screen_rect)
   
-  screen.fill(background)
-  if viewMode:
-    Camera.draw()
+  if player.camera.viewMode:
+    player.camera.draw()
   else:
-    Camera.dot(foreground)
+    player.camera.dot(foreground)
     for wall in Wall.all:
       wall.draw()
   
