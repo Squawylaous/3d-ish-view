@@ -219,6 +219,7 @@ class Camera:
         polygon = [*map(intVector, zip(x_values*2, y_values))]
         polygon = [polygon[i] for i in [0, 2, 3, 1]]
         update_rects.append(pygame.draw.polygon(screen, wall["wall"].color, polygon))
+        update_rects.append(pygame.draw.polygon(screen, [0]*3, polygon, 1))
       
     else:
       inters = [None for i in range(self.fidelity)]
