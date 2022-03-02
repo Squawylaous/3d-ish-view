@@ -20,9 +20,10 @@ update_rects = [[]]
 fps = 0
 
 def intVector(v):
-  return int(v.x), int(v.y)
+  return (*map(int, map(round, v)),)
 
 def lineRect(line):
+  line = [*map(vector, line)]
   rect = pygame.rect.Rect(*map(intVector, [line[0], line[1]-line[0]]))
   rect.normalize()
   return rect
@@ -47,7 +48,7 @@ def colorMerge(*colorList):
 #gets the intersection point of two lines
 #line1 and line2 both take a list of 2 vectors
 #returns vector for intersection point or None if there is no intersection
-def intersection(line1, line2):
+def intersection(line1, line2, or_eq=True):
   line1, line2 = [*map(vector, line1)], [*map(vector, line2)]
   try:
     slope1 = (line1[1].y-line1[0].y)/(line1[1].x-line1[0].x)
@@ -77,6 +78,8 @@ def intersection(line1, line2):
         x, y = 0, 0 #placeholder
       else:
         return None
+    else:
+      return None
   elif slope1 == float("inf"):
     x = line1[0].x
     y = slope2*x + intercept2
@@ -90,10 +93,14 @@ def intersection(line1, line2):
   x, y = round(x, 10), round(y, 10)
   
   # tests to see if current x and y values are within bounds of lines
-  if max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x)) <=\
-  x <= min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x)) and\
-  max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y)) <=\
-  y <= min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y)):
+  min_x = max(min(line1[0].x, line1[1].x), min(line2[0].x, line2[1].x))
+  max_x = min(max(line1[0].x, line1[1].x), max(line2[0].x, line2[1].x))
+  min_y = max(min(line1[0].y, line1[1].y), min(line2[0].y, line2[1].y))
+  max_y = min(max(line1[0].y, line1[1].y), max(line2[0].y, line2[1].y))
+  if min_x <= x <= max_x and min_y <= y <= max_y:
+    if not or_eq:
+      if sum(map(lambda point:point.x == x and point.y == y, line1+line2)):
+        return None
     return vector(x, y)
 
 def polygon(*points, color=foreground, colors=[]):
@@ -149,13 +156,69 @@ class Camera:
   
   def draw(self):
     if self.viewMode == 1:
-      self.viewMode = 2
       visible = []
       for wall in Wall.all:
-        inters = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
+        line = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
         angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
-        if (inters[0] is not None or inters[1] is not None) or sum([abs(i)<=self.fov/2 for i in angles]):
-          visible.append({"wall":wall, "inters":inters, "angles":angles})
+        line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
+        line = [*map(vector, {(*i,) for i in line if i is not None})]
+        if len(line)==2:
+          visible.append({"wall":wall, "line":line, "inters":[]})
+      for i in range(len(visible)):
+        wall = visible[i]
+        for other in visible[i+1:]:
+          inter = intersection(wall["line"], other["line"], or_eq=False)
+          if inter is not None:
+            wall["inters"].append(inter)
+            other["inters"].append(inter)
+        wall["inters"] = sorted(wall["line"]+wall["inters"], key=wall["line"][0].distance_squared_to)
+      visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1]} for wall in visible for i in range(1, len(wall["inters"]))]
+      for i in range(len(visible)):
+        wall = visible[i]
+        wall["i"] = i
+        wall["angles"] = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall["line"]]
+      visibleOrdered = [[] for i in visible]
+      for i in range(len(visible)):
+        wall = visible[i]
+        for other in visible[i+1:]:
+          if min(other["angles"]) < wall["angles"][0] < max(other["angles"]):
+            if intersection(other["line"], [self.pos, wall["line"][0]], or_eq=False) is None:
+              visibleOrdered[wall["i"]].append(other["i"])
+            else:
+              visibleOrdered[other["i"]].append(wall["i"])
+          elif min(other["angles"]) < wall["angles"][1] < max(other["angles"]):
+            if intersection(other["line"], [self.pos, wall["line"][1]], or_eq=False) is None:
+              visibleOrdered[wall["i"]].append(other["i"])
+            else:
+              visibleOrdered[other["i"]].append(wall["i"])
+          elif min(wall["angles"]) < other["angles"][0] < max(wall["angles"]):
+            if intersection(wall["line"], [self.pos, other["line"][0]], or_eq=False) is None:
+              visibleOrdered[other["i"]].append(wall["i"])
+            else:
+              visibleOrdered[wall["i"]].append(other["i"])
+          elif min(wall["angles"]) < other["angles"][1] < max(wall["angles"]):
+            if intersection(wall["line"], [self.pos, other["line"][1]], or_eq=False) is None:
+              visibleOrdered[other["i"]].append(wall["i"])
+            else:
+              visibleOrdered[wall["i"]].append(other["i"])
+      newVisibleOrdered = []
+      while True:
+        for i in range(len(visibleOrdered)):
+          if not len(visibleOrdered[i]) and i not in newVisibleOrdered:
+            newVisibleOrdered.append(i)
+        for i in range(len(visibleOrdered)):
+          visibleOrdered[i] = [i for i in visibleOrdered[i] if i not in newVisibleOrdered]
+        if len(newVisibleOrdered) >= len(visibleOrdered):
+          break
+      visible = [visible[i] for i in newVisibleOrdered]
+      for wall in visible:
+        x_values = [(i/self.fov+0.5)*screen_rect.w for i in wall["angles"]]
+        y_values = [self.pos.distance_to(i)/self.viewRange/2 for i in wall["line"]]
+        y_values = [i*screen_rect.h for i in y_values+[1-ii for ii in y_values]]
+        polygon = [*map(intVector, zip(x_values*2, y_values))]
+        polygon = [polygon[i] for i in [0, 2, 3, 1]]
+        update_rects.append(pygame.draw.polygon(screen, wall["wall"].color, polygon))
+
     else:
       inters = [None for i in range(self.fidelity)]
       rays = self.rays(self.fidelity)
@@ -182,9 +245,6 @@ class Camera:
     update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(-self.fov/2)*self.viewRange]), 3))
     update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(self.fov/2)*self.viewRange]), 3))
     update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
-
-#lol=vector(1,1)
-#print(*[(i+180)%360-180 for i in map(round, map(lol.angle_to, map(lol.rotate, range(360))))])
 
 class Player:
   def __init__(self, pos, angle):
