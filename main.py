@@ -71,11 +71,11 @@ def intersection(line1, line2, or_eq=True):
       if intercept1 != float("-inf"):
         #if y-intercepts are equal: lines are the same
         #test for lines touching eachother using ranges of x and y
-        x, y = 0, 0 #placeholder
+        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder?
       elif line1[0].x == line2[0].x:
         #if both lines are vertical and equal
         #mabye combine with if above
-        x, y = 0, 0 #placeholder
+        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder
       else:
         return None
     else:
@@ -155,6 +155,7 @@ class Camera:
     return [self.angle.rotate(self.fov*(i - 0.5*(n-1))/n)*self.viewRange for i in range(n)]
   
   def draw(self):
+    buffer = 0.9
     if self.viewMode == 1:
       visible = []
       for wall in Wall.all:
@@ -202,7 +203,7 @@ class Camera:
             else:
               visibleOrdered[wall["i"]].append(other["i"])
       newVisibleOrdered = []
-      while True:
+      for I in range(len(visible)):
         for i in range(len(visibleOrdered)):
           if not len(visibleOrdered[i]) and i not in newVisibleOrdered:
             newVisibleOrdered.append(i)
@@ -213,12 +214,12 @@ class Camera:
       visible = [visible[i] for i in newVisibleOrdered]
       for wall in visible:
         x_values = [(i/self.fov+0.5)*screen_rect.w for i in wall["angles"]]
-        y_values = [self.pos.distance_to(i)/self.viewRange/2 for i in wall["line"]]
-        y_values = [i*screen_rect.h for i in y_values+[1-ii for ii in y_values]]
+        y_values = [(min(self.pos.distance_to(i)/self.viewRange, 1)-1)*buffer for i in wall["line"]]
+        y_values = [(i+1)*screen_rect.h/2 for i in y_values+[-ii for ii in y_values]]
         polygon = [*map(intVector, zip(x_values*2, y_values))]
         polygon = [polygon[i] for i in [0, 2, 3, 1]]
         update_rects.append(pygame.draw.polygon(screen, wall["wall"].color, polygon))
-
+      
     else:
       inters = [None for i in range(self.fidelity)]
       rays = self.rays(self.fidelity)
@@ -237,8 +238,8 @@ class Camera:
       
       for ray in inters:
         if ray is not None:
-          rect = pygame.rect.Rect(screen_rect.w/self.fidelity*ray["i"], screen_rect.h/2*(1-ray["%"]),
-            screen_rect.w/self.fidelity, screen_rect.h*ray["%"])
+          rect = pygame.rect.Rect(screen_rect.w/self.fidelity*ray["i"], screen_rect.h/2*(1-ray["%"]*buffer),
+            screen_rect.w/self.fidelity, screen_rect.h*ray["%"]*buffer)
           update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
   
   def dot(self, color):
