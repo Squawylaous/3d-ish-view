@@ -169,7 +169,7 @@ class Camera:
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
         line = [*map(vector, {(*i,) for i in line if i is not None})]
         if len(line)==2:
-          visible.append({"wall":wall, "line":wall.line if self.extend else line, "inters":[]})
+          visible.append({"wall":wall, "line":wall.line if self.extend else line, "inters":[], "edge":line})
       for i in range(len(visible)):
         wall = visible[i]
         for other in visible[i+1:]:
@@ -178,7 +178,7 @@ class Camera:
             wall["inters"].append(inter)
             other["inters"].append(inter)
         wall["inters"] = sorted(wall["line"]+wall["inters"], key=wall["line"][0].distance_squared_to)
-      visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1]} for wall in visible for i in range(1, len(wall["inters"]))]
+      visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1], "edge":wall["edge"]} for wall in visible for i in range(1, len(wall["inters"]))]
       for i in range(len(visible)):
         wall = visible[i]
         wall["i"] = i
@@ -217,6 +217,23 @@ class Camera:
         if len(newVisibleOrdered) >= len(visibleOrdered):
           break
       visible = [visible[i] for i in newVisibleOrdered]
+      if self.extend == 2:
+        for wall in visible:
+          if min(wall["line"][0].x, wall["line"][1].x) <= wall["edge"][0].x <= max(wall["line"][0].x, wall["line"][1].x) and\
+          min(wall["line"][0].y, wall["line"][1].y) <= wall["edge"][0].y <= max(wall["line"][0].y, wall["line"][1].y):
+            pass
+          else:
+            del wall["edge"][0]
+          if min(wall["line"][0].x, wall["line"][1].x) <= wall["edge"][1].x <= max(wall["line"][0].x, wall["line"][1].x) and\
+          min(wall["line"][0].y, wall["line"][1].y) <= wall["edge"][1].y <= max(wall["line"][0].y, wall["line"][1].y):
+            pass
+          else:
+            del wall["edge"][1]
+          if len(wall["edge"])==2:
+            wall["line"]==wall["edge"]
+          if len(wall["edge"]):
+            pass
+          del wall["edge"]
       for wall in visible:
         x_values = [(i/self.fov+0.5)*screen_rect.w for i in wall["angles"]]
         y_values = [(min(self.pos.distance_to(i)/self.viewRange, 1)-1)*buffer for i in wall["line"]]
@@ -301,7 +318,7 @@ while True:
       elif event.key == K_SPACE:
         player.camera.comp = not player.camera.comp
       elif event.key == K_e:
-        player.camera.extend = not player.camera.extend
+        player.camera.extend = (player.camera.extend+1)%3
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
     elif event.type == UPDATESCREEN:
