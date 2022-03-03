@@ -138,8 +138,7 @@ class Wall:
 class Camera:
   def __init__(self, player, *, fov, viewRange, fidelity=screen_rect.w):
     self.player, self.fov, self.viewRange, self.fidelity = player, fov, viewRange, fidelity
-    self.viewMode, self.comp = True, False
-    self.lol = True
+    self.viewMode, self.comp, self.extend = True, False, False
   
   @property
   def pos(self):
@@ -170,7 +169,7 @@ class Camera:
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
         line = [*map(vector, {(*i,) for i in line if i is not None})]
         if len(line)==2:
-          visible.append({"wall":wall, "line":line, "inters":[]})
+          visible.append({"wall":wall, "line":wall.line if self.extend else line, "inters":[]})
       for i in range(len(visible)):
         wall = visible[i]
         for other in visible[i+1:]:
@@ -179,18 +178,11 @@ class Camera:
             wall["inters"].append(inter)
             other["inters"].append(inter)
         wall["inters"] = sorted(wall["line"]+wall["inters"], key=wall["line"][0].distance_squared_to)
-      
-      visall = [*visible]
       visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1]} for wall in visible for i in range(1, len(wall["inters"]))]
-      if pygame.key.get_pressed()[K_p] and self.lol:
-        self.lol = False
-        print(len(visible), len(visall), "\n")
-        print(*[line for line in visall], sep="\n")
-      
       for i in range(len(visible)):
         wall = visible[i]
         wall["i"] = i
-        wall["angles"] = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall["line"]]
+        wall["angles"] = [(round(self.angle.angle_to(i-self.pos), 10)+180)%360-180 for i in wall["line"]]
       visibleOrdered = [[] for i in visible]
       for i in range(len(visible)):
         wall = visible[i]
@@ -308,6 +300,8 @@ while True:
         pygame.event.post(pygame.event.Event(UPDATESCREEN))
       elif event.key == K_SPACE:
         player.camera.comp = not player.camera.comp
+      elif event.key == K_e:
+        player.camera.extend = not player.camera.extend
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
     elif event.type == UPDATESCREEN:
