@@ -208,7 +208,7 @@ class Camera:
             else:
               visibleOrdered[wall["i"]].append(other["i"])
       newVisibleOrdered = []
-      for I in range(len(visible)):
+      while True:
         for i in range(len(visibleOrdered)):
           if not len(visibleOrdered[i]) and i not in newVisibleOrdered:
             newVisibleOrdered.append(i)
