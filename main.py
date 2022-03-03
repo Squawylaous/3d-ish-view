@@ -106,7 +106,7 @@ def intersection(line1, line2, or_eq=True):
         return None
     return vector(x, y)
   if or_eq == 10:
-    return vector(x,y)
+    return vector(x, y)
 
 def polygon(*points, color=foreground, colors=[]):
   if len(points) == 1:
@@ -164,28 +164,13 @@ class Camera:
     buffer = 0.9
     if self.viewMode == 1:
       visible = []
-      visall = []
       for wall in Wall.all:
         line = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
-        if line[0] is None:
-          visall.append(intersection(wall.line, [self.pos, self.pos+self.angle.rotate(-self.fov/2)*self.viewRange], or_eq=10))
-        if line[1] is None:
-          visall.append(intersection(wall.line, [self.pos, self.pos+self.angle.rotate(self.fov/2)*self.viewRange], or_eq=10))
         angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
-        if abs(angles[0])<=self.fov/2:
-          visall.append([angles[0], wall.line[0]])
-        if abs(angles[1])<=self.fov/2:
-          visall.append([angles[1], wall.line[1]])
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
         line = [*map(vector, {(*i,) for i in line if i is not None})]
         if len(line)==2:
           visible.append({"wall":wall, "line":line, "inters":[]})
-      if pygame.key.get_pressed()[K_p] and self.lol:
-        self.lol = False
-        print(*[line for line in visall], sep="\n")
-      
-      
-      
       for i in range(len(visible)):
         wall = visible[i]
         for other in visible[i+1:]:
@@ -194,7 +179,14 @@ class Camera:
             wall["inters"].append(inter)
             other["inters"].append(inter)
         wall["inters"] = sorted(wall["line"]+wall["inters"], key=wall["line"][0].distance_squared_to)
+      
+      visall = [*visible]
       visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1]} for wall in visible for i in range(1, len(wall["inters"]))]
+      if pygame.key.get_pressed()[K_p] and self.lol:
+        self.lol = False
+        print(len(visible), len(visall), "\n")
+        print(*[line for line in visall], sep="\n")
+      
       for i in range(len(visible)):
         wall = visible[i]
         wall["i"] = i
