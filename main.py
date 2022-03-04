@@ -78,7 +78,7 @@ def intersection(line1, line2, or_eq=True):
       elif line1[0].x == line2[0].x:
         #if both lines are vertical and equal
         #mabye combine with if above
-        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder
+        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder?
       else:
         return None
     else:
@@ -162,7 +162,8 @@ class Camera:
     if self.viewMode == 1:
       visible = []
       for wall in Wall.all:
-        #remake thing to check if wall is in range
+        if all(self.pos.distance_squared_to(i) >= self.viewRange**2 for i in wall.line):
+          continue
         line = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
         angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
