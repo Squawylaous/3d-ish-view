@@ -105,8 +105,6 @@ def intersection(line1, line2, or_eq=True):
       if sum(map(lambda point:point.x == x and point.y == y, line1+line2)):
         return None
     return vector(x, y)
-  if or_eq == 10:
-    return vector(x, y)
 
 def polygon(*points, color=foreground, colors=[]):
   if len(points) == 1:
@@ -164,12 +162,13 @@ class Camera:
     if self.viewMode == 1:
       visible = []
       for wall in Wall.all:
+        #remake thing to check if wall is in range
         line = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
         angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
         line = [*map(vector, {(*i,) for i in line if i is not None})]
         if len(line)==2:
-          visible.append({"wall":wall, "line":wall.line if self.extend else line, "inters":[], "edge":line})
+          visible.append({"wall":wall, "line":wall.line if self.extend else line, "inters":[]})
       for i in range(len(visible)):
         wall = visible[i]
         for other in visible[i+1:]:
@@ -178,7 +177,7 @@ class Camera:
             wall["inters"].append(inter)
             other["inters"].append(inter)
         wall["inters"] = sorted(wall["line"]+wall["inters"], key=wall["line"][0].distance_squared_to)
-      visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1], "edge":wall["edge"]} for wall in visible for i in range(1, len(wall["inters"]))]
+      visible = [{"wall":wall["wall"], "line":wall["inters"][i-1:i+1]} for wall in visible for i in range(1, len(wall["inters"]))]
       for i in range(len(visible)):
         wall = visible[i]
         wall["i"] = i
@@ -217,23 +216,6 @@ class Camera:
         if len(newVisibleOrdered) >= len(visibleOrdered):
           break
       visible = [visible[i] for i in newVisibleOrdered]
-      if self.extend == 2:
-        for wall in visible:
-          if min(wall["line"][0].x, wall["line"][1].x) <= wall["edge"][0].x <= max(wall["line"][0].x, wall["line"][1].x) and\
-          min(wall["line"][0].y, wall["line"][1].y) <= wall["edge"][0].y <= max(wall["line"][0].y, wall["line"][1].y):
-            pass
-          else:
-            del wall["edge"][0]
-          if min(wall["line"][0].x, wall["line"][1].x) <= wall["edge"][1].x <= max(wall["line"][0].x, wall["line"][1].x) and\
-          min(wall["line"][0].y, wall["line"][1].y) <= wall["edge"][1].y <= max(wall["line"][0].y, wall["line"][1].y):
-            pass
-          else:
-            del wall["edge"][1]
-          if len(wall["edge"])==2:
-            wall["line"]==wall["edge"]
-          if len(wall["edge"]):
-            pass
-          del wall["edge"]
       for wall in visible:
         x_values = [(i/self.fov+0.5)*screen_rect.w for i in wall["angles"]]
         y_values = [(min(self.pos.distance_to(i)/self.viewRange, 1)-1)*buffer for i in wall["line"]]
@@ -289,6 +271,22 @@ polygon((250, 100, 300, 100))
 polygon((350, 175, 100, 150), color=colorMerge(.75))
 polygon((0, 0, 1000, 1000), color=colorMerge(.5))
 
+combine = lambda *f: lambda *a, **k: f[0](combine(*f[1:])(*a, **k)) if len(f)>1 else f[0](*a, **k)
+mapCombine = lambda *f: lambda *a: map(f[0], mapCombine(*f[1:])(*a)) if len(f)>1 else map(f[0], *a)
+Combine2 = lambda *f: (lambda M: M(M, *f))(lambda S, F, *f: lambda *a, **k: F(S(S, *f)(*a, **k)) if f else F(*a, **k))
+Combine2 = lambda *f: (lambda M: M(M, *f))(lambda S, F, *f: map)
+print(Combine2(lambda x: x.split("2"), str, int)(98234432123.4534254))
+def maps(*funcs):
+  def m(*iters):
+    return map(combine(*funcs), *iters)
+  return m
+
+V = [12.3, 324.523, -2154532.3, -0.0]
+print(*map(str, map(int, V)))
+print(*maps(str, int)(V))
+print(*mapCombine(str, int)(V))
+
+
 while True:
   clock.tick(-1)
   fps = clock.get_fps()
@@ -318,7 +316,7 @@ while True:
       elif event.key == K_SPACE:
         player.camera.comp = not player.camera.comp
       elif event.key == K_e:
-        player.camera.extend = (player.camera.extend+1)%3
+        player.camera.extend = not player.camera.extend
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
     elif event.type == UPDATESCREEN:
