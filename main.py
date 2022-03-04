@@ -271,22 +271,6 @@ polygon((250, 100, 300, 100))
 polygon((350, 175, 100, 150), color=colorMerge(.75))
 polygon((0, 0, 1000, 1000), color=colorMerge(.5))
 
-combine = lambda *f: lambda *a, **k: f[0](combine(*f[1:])(*a, **k)) if len(f)>1 else f[0](*a, **k)
-mapCombine = lambda *f: lambda *a: map(f[0], mapCombine(*f[1:])(*a)) if len(f)>1 else map(f[0], *a)
-Combine2 = lambda *f: (lambda M: M(M, *f))(lambda S, F, *f: lambda *a, **k: F(S(S, *f)(*a, **k)) if f else F(*a, **k))
-Combine2 = lambda *f: (lambda M: M(M, *f))(lambda S, F, *f: map)
-print(Combine2(lambda x: x.split("2"), str, int)(98234432123.4534254))
-def maps(*funcs):
-  def m(*iters):
-    return map(combine(*funcs), *iters)
-  return m
-
-V = [12.3, 324.523, -2154532.3, -0.0]
-print(*map(str, map(int, V)))
-print(*maps(str, int)(V))
-print(*mapCombine(str, int)(V))
-
-
 while True:
   clock.tick(-1)
   fps = clock.get_fps()
