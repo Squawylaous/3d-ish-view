@@ -13,9 +13,6 @@ screen = pygame.display.set_mode((0, 0), FULLSCREEN)
 screen_rect = screen.get_rect()
 pygame.key.set_repeat(1, 50)
 
-UPDATESCREEN = USEREVENT + 0
-pygame.time.set_timer(UPDATESCREEN, 1000)
-
 update_rects = [[]]
 fps = 0
 
@@ -48,6 +45,18 @@ def colorMerge(*colorList):
     percents.append(max(1-sum(percents), 0))
   return pygame.Color(*[int(round(np.average(i, weights=percents))) for i in zip(*colors)])
 
+#pygame's draw functions tend to return rects slightly smaller than they should be if you set a width,
+#so this should (hopefully) fix that
+def draw_shape(name, surface, color, *args, width=None):
+  if width is not None:
+    args += (width,)
+  rect = getattr(pygame.draw, name)(surface, color, *args)
+  if width is not None:
+    rect = map(sum, zip(rect, [-width//2,-width//2,width,width]))
+  rect = pygame.rect.Rect(*map(sum, zip(rect, [-1,-1,2,2])))
+  update_rects.append(rect)
+  return rect
+
 #gets the intersection point of two lines
 #line1 and line2 both take a list of 2 vectors
 #returns vector for intersection point or None if there is no intersection
@@ -78,7 +87,7 @@ def intersection(line1, line2, or_eq=True):
       elif line1[0].x == line2[0].x:
         #if both lines are vertical and equal
         #mabye combine with if above
-        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder?
+        return vector(np.average([i.x for i in line1+line2]), np.average([i.y for i in line1+line2])) #placeholder
       else:
         return None
     else:
@@ -131,7 +140,7 @@ class Wall:
     return (self.line[0]+self.line[1])/2
 
   def draw(self):
-    update_rects.append(pygame.draw.line(screen, self.color, *map(intVector, self.line), 5))
+    draw_shape("line", screen, self.color, *map(intVector, self.line), width=5)
 
 class Camera:
   def __init__(self, player, *, fov, viewRange, fidelity=screen_rect.w):
@@ -162,8 +171,7 @@ class Camera:
     if self.viewMode == 1:
       visible = []
       for wall in Wall.all:
-        if all(self.pos.distance_squared_to(i) >= self.viewRange**2 for i in wall.line):
-          continue
+        #remake thing to check if wall is in range
         line = [intersection(wall.line, [self.pos, self.pos+self.angle.rotate(ray*self.fov/2)*self.viewRange]) for ray in [-1,1]]
         angles = [(self.angle.angle_to(i-self.pos)+180)%360-180 for i in wall.line]
         line += [wall.line[i] for i in range(len(angles)) if abs(angles[i])<=self.fov/2]
@@ -223,8 +231,8 @@ class Camera:
         y_values = [(i+1)*screen_rect.h/2 for i in y_values+[-ii for ii in y_values]]
         polygon = [*map(intVector, zip(x_values*2, y_values))]
         polygon = [polygon[i] for i in [0, 2, 3, 1]]
-        update_rects.append(pygame.draw.polygon(screen, wall["wall"].color, polygon))
-        update_rects.append(pygame.draw.polygon(screen, [0]*3, polygon, 1))
+        draw_shape("polygon", screen, wall["wall"].color, polygon)
+        draw_shape("polygon", screen, [0]*3, polygon, width=1)
       
     else:
       inters = [None for i in range(self.fidelity)]
@@ -246,12 +254,12 @@ class Camera:
         if ray is not None:
           rect = pygame.rect.Rect(screen_rect.w/self.fidelity*ray["i"], screen_rect.h/2*(1-ray["%"]*buffer),
             screen_rect.w/self.fidelity, screen_rect.h*ray["%"]*buffer)
-          update_rects.append(pygame.draw.rect(screen, ray["color"], rect))
+          draw_shape("rect", screen, ray["color"], rect)
   
   def dot(self, color):
-    update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(-self.fov/2)*self.viewRange]), 3))
-    update_rects.append(pygame.draw.line(screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(self.fov/2)*self.viewRange]), 3))
-    update_rects.append(pygame.draw.circle(screen, color, intVector(self.pos), 10))
+    draw_shape("line", screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(-self.fov/2)*self.viewRange]), width=3)
+    draw_shape("line", screen, color, *map(intVector, [self.pos, self.pos+self.angle.rotate(self.fov/2)*self.viewRange]), width=3)
+    draw_shape("circle", screen, color, intVector(self.pos), 10)
 
 class Player:
   def __init__(self, pos, angle):
@@ -297,15 +305,12 @@ while True:
     elif event.type == KEYUP:
       if event.key == K_RETURN:
         player.camera.viewMode = (player.camera.viewMode+1)%3
-        pygame.event.post(pygame.event.Event(UPDATESCREEN))
       elif event.key == K_SPACE:
         player.camera.comp = not player.camera.comp
       elif event.key == K_e:
         player.camera.extend = not player.camera.extend
       elif event.key == K_ESCAPE:
         pygame.event.post(pygame.event.Event(QUIT))
-    elif event.type == UPDATESCREEN:
-        update_rects[0].append(screen_rect)
   
   if player.camera.viewMode:
     player.camera.draw()
